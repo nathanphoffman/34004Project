@@ -1,0 +1,33 @@
+[package]
+name = "project_34004"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "34004Project"
+path = "build/main.rs"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+critical-section = "1.2"
+embedded-alloc = "0.5.1"
+embedded-hal = "1.0"
+panic-halt = "0.2"
+rp235x-hal = { version = "0.4", features = ["critical-section-impl", "rt"], optional = true }
+rp2040-hal = { version = "0.10", features = ["critical-section-impl", "rt"], optional = true }
+rp2040-boot2 = { version = "0.3", optional = true }
+
+[features]
+default = ["rp2350"]
+# Real hardware: Pico 2 (RP2350). Build with `just build`.
+rp2350 = ["dep:rp235x-hal"]
+# Wokwi simulation stand-in: Pico 1 (RP2040) — Wokwi has no RP2350 core yet.
+# Build with `just wokwi-build`.
+rp2040 = ["dep:rp2040-hal", "dep:rp2040-boot2"]
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"

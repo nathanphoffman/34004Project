@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "author": "34004Project",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-pi-pico", "id": "pico", "top": 200, "left": 0, "attrs": {} },
+    { "type": "wokwi-lcd2004", "id": "lcd1", "top": 0, "left": 350, "attrs": {} },
+    { "type": "wokwi-lcd2004", "id": "lcd2", "top": 190, "left": 350, "attrs": {} },
+    { "type": "wokwi-lcd2004", "id": "lcd3", "top": 380, "left": 350, "attrs": {} },
+    { "type": "wokwi-resistor", "id": "r1", "top": 40, "left": 260, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 230, "left": 260, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 420, "left": 260, "rotate": 90, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    ["pico:GP2", "lcd1:D4", "green", []],
+    ["pico:GP3", "lcd1:D5", "green", []],
+    ["pico:GP4", "lcd1:D6", "green", []],
+    ["pico:GP5", "lcd1:D7", "green", []],
+    ["lcd2:D4", "lcd1:D4", "green", []],
+    ["lcd2:D5", "lcd1:D5", "green", []],
+    ["lcd2:D6", "lcd1:D6", "green", []],
+    ["lcd2:D7", "lcd1:D7", "green", []],
+    ["lcd3:D4", "lcd1:D4", "green", []],
+    ["lcd3:D5", "lcd1:D5", "green", []],
+    ["lcd3:D6", "lcd1:D6", "green", []],
+    ["lcd3:D7", "lcd1:D7", "green", []],
+
+    ["pico:GP0", "lcd1:RS", "blue", []],
+    ["pico:GP1", "lcd1:E", "yellow", []],
+    ["pico:GP6", "lcd2:RS", "blue", []],
+    ["pico:GP7", "lcd2:E", "yellow", []],
+    ["pico:GP8", "lcd3:RS", "blue", []],
+    ["pico:GP9", "lcd3:E", "yellow", []],
+
+    ["pico:GP14", "r1:1", "orange", []],
+    ["r1:2", "lcd1:A", "orange", []],
+    ["pico:GP15", "r2:1", "orange", []],
+    ["r2:2", "lcd2:A", "orange", []],
+    ["pico:GP16", "r3:1", "orange", []],
+    ["r3:2", "lcd3:A", "orange", []],
+
+    ["lcd1:VDD", "pico:3V3", "red", []],
+    ["lcd2:VDD", "pico:3V3", "red", []],
+    ["lcd3:VDD", "pico:3V3", "red", []],
+
+    ["lcd1:VSS", "pico:GND.1", "black", []],
+    ["lcd1:RW", "pico:GND.1", "black", []],
+    ["lcd1:V0", "pico:GND.1", "black", []],
+    ["lcd1:K", "pico:GND.1", "black", []],
+    ["lcd2:VSS", "pico:GND.2", "black", []],
+    ["lcd2:RW", "pico:GND.2", "black", []],
+    ["lcd2:V0", "pico:GND.2", "black", []],
+    ["lcd2:K", "pico:GND.2", "black", []],
+    ["lcd3:VSS", "pico:GND.3", "black", []],
+    ["lcd3:RW", "pico:GND.3", "black", []],
+    ["lcd3:V0", "pico:GND.3", "black", []],
+    ["lcd3:K", "pico:GND.3", "black", []]
+  ]
+}

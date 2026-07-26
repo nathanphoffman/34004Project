@@ -1,0 +1,21 @@
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+[target.thumbv8m.main-none-eabihf]
+rustflags = [
+    "-C", "link-arg=--nmagic",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "target-cpu=cortex-m33",
+]
+
+# Flash + run with picotool (requires picotool installed and the Pico 2
+# in BOOTSEL mode, or already running picoboot over USB).
+runner = "picotool load -u -v -x -t elf"
+
+# RP2040 (Pico 1) target — Wokwi simulation stand-in only, see
+# `just wokwi-build`. Not used for real hardware.
+[target.thumbv6m-none-eabi]
+rustflags = [
+    "-C", "link-arg=--nmagic",
+    "-C", "link-arg=-Tlink.x",
+]
