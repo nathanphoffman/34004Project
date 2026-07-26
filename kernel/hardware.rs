@@ -1,6 +1,6 @@
-// The two entry points application/app.deor calls into: bring-up, then
-// per-panel text output. Both are plain-data (int/string) calls, so
-// nothing hardware-shaped ever has to cross the Deor/Rust boundary.
+// The entry points application/app.deor calls into: bring-up and
+// per-panel text output. Both plain-data (int/string) calls, so nothing
+// hardware-shaped ever has to cross the Deor/Rust boundary.
 
 /// Bring up clocks, GPIO, and all three LCDs. Must run before `hw_print_str`.
 pub fn hw_init() {
@@ -97,4 +97,21 @@ pub fn hw_print_str(display: i64, text: &str) {
         };
         lcd_print_line(bus, lcd, text, delay);
     });
+}
+
+// Real hardware redraws every keystroke — each hw_print_str call is a
+// few ms of real time, imperceptible to a human typing. Wokwi's rp2040js
+// steps every cycle of that bit-banged delay loop individually with no
+// fast-forward, so redrawing on every keystroke during the simulated
+// burst is what was crawling — batching cuts how often that runs there.
+#[cfg(feature = "rp2040")]
+const DISPLAY_BATCH: i64 = 4;
+#[cfg(not(feature = "rp2040"))]
+const DISPLAY_BATCH: i64 = 1;
+
+/// True once `count` new characters have accumulated since the last
+/// redraw. application/app.deor also flushes on '\n' regardless, so a
+/// trailing partial batch is never stranded on screen.
+pub fn display_batch_reached(count: i64) -> bool {
+    count % DISPLAY_BATCH == 0
 }

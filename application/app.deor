@@ -2,28 +2,38 @@
 # echoing keystrokes from lib/keyboard.deor onto panel 1. Real hardware
 # reads a PS/2 keyboard; the Wokwi build gets the same characters from
 # kernel/keyboard_sim.rs's timed injector instead — this file can't tell
-# the difference.
+# the difference. The loop below polls xk_read_key() continuously —
+# there are no interrupts anywhere in this project (see kernel/keyboard.rs
+# for why), so nothing will ever wake a sleeping CPU here.
 
 import "lib/lcd.deor"
 import "lib/keyboard.deor"
 import "lib/string.deor"
 
+fn bool batch_reached(int count)
+    rust
+        display_batch_reached(count)
+
 fn void app_main()
     int panel1 = 1
-    string greeting1 = "hello 1"
+    string greeting1 = "rebuild check 1"
     xl_print(panel1, greeting1)
 
     int panel2 = 2
-    string greeting2 = "hello 3"
+    string greeting2 = "rebuild check 2"
     xl_print(panel2, greeting2)
 
     int panel3 = 3
-    string greeting3 = "hello 3"
+    string greeting3 = "rebuild check 3"
     xl_print(panel3, greeting3)
 
     string typed = ""
+    int since_flush = 0
     for if true
         string key = xk_read_key()
         if key is not ""
             typed = s_join([typed, key])
-            xl_print(panel1, typed)
+            since_flush = since_flush + 1
+            if batch_reached(since_flush) or key is "\n"
+                xl_print(panel1, typed)
+                since_flush = 0

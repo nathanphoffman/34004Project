@@ -2,8 +2,11 @@
 // driver for three shared-bus 20x4 LCD panels, and a PS/2 keyboard
 // receiver — split across this directory: state.rs (types + statics),
 // lcd.rs (bit-bang driver), hardware.rs (hw_init/hw_print_str — the
-// entry points Deor calls), keyboard.rs (real PS/2 receiver),
-// keyboard_sim.rs (Wokwi-only simulated keystrokes).
+// entry points Deor calls), keyboard.rs (real PS/2 receiver, polled),
+// keyboard_sim.rs (Wokwi-only simulated keystrokes, also polled).
+//
+// Deliberately no interrupts anywhere in this crate — see keyboard.rs
+// for why. Everything runs from application/app.deor's plain poll loop.
 //
 // Pulled in verbatim into build/main.rs via kernel/boot.deor's
 // include!("../kernel/kernel.rs") — see main.deor and
@@ -16,7 +19,6 @@ use alloc::collections::VecDeque;
 use critical_section::Mutex;
 use embedded_hal::digital::{InputPin, OutputPin};
 use hal::Clock;
-use hal::pac::interrupt;
 
 include!("state.rs");
 include!("lcd.rs");

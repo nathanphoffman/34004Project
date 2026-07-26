@@ -1,29 +1,32 @@
-// PS/2 keyboard receiver. The keyboard drives CLK; on each falling edge
-// the host samples DATA and shifts it into an 11-bit frame (start bit,
-// 8 data bits LSB-first, parity, stop bit). Decoded characters land in
-// KEY_QUEUE for xk_read_key() to drain — see lib/keyboard.deor.
+// PS/2 keyboard receiver — polled, not interrupt-driven. The keyboard
+// drives CLK at ~10-16kHz; ps2_poll_once, called from kb_read_key() on
+// every app_main() loop iteration, detects a falling edge in software
+// (CLK was high last poll, low now) and shifts DATA into an 11-bit frame
+// (start bit, 8 data bits LSB-first, parity, stop bit). That's a much
+// higher poll rate than the CLK line toggles, so no edges are missed.
 //
-// Scan Code Set 2 only covers plain alphanumeric/space/enter/backspace/
-// tab/escape here; break codes (0xF0 prefix, key-up) and the 0xE0
-// extended prefix are recognized and consumed but not mapped to a
-// character, since this is meant for typing text, not modifier/arrow
-// keys. Table verified against the OSDev PS/2 Keyboard reference.
+// This replaced an earlier GPIO-interrupt version (falling-edge IRQ on
+// CLK). Wokwi's rp2040js doesn't guarantee real hardware's interrupt
+// timing behavior, and every fix that kept the interrupt architecture
+// (one-shot alarms, display batching, shrunk LCD delays) failed to fix
+// a persistent Wokwi slowdown — so interrupts came out entirely, for
+// both the real receiver and the sim injector in keyboard_sim.rs.
+//
+// Decoded characters land in KEY_QUEUE for xk_read_key() to drain — see
+// lib/keyboard.deor. Scan Code Set 2 only covers plain alphanumeric/
+// space/enter/backspace/tab/escape; break codes (0xF0 prefix, key-up)
+// and the 0xE0 extended prefix are recognized and consumed but not
+// mapped to a character, since this is meant for typing text, not
+// modifier/arrow keys. Table verified against the OSDev PS/2 Keyboard
+// reference.
 
-/// Wire up the CLK/DATA pins and enable the interrupt that drives the
-/// bit-shift state machine. Called from hw_init() with pins it already
-/// owns — `pac::Peripherals::take()` only succeeds once, so this can't
-/// grab its own.
-fn ps2_configure(mut clk: InPin, data: InPin) {
-    clk.clear_interrupt(hal::gpio::Interrupt::EdgeLow);
-    clk.set_interrupt_enabled(hal::gpio::Interrupt::EdgeLow, true);
-
+/// Stash the CLK/DATA pins for ps2_poll_once to read. Called from
+/// hw_init() with pins it already owns — `pac::Peripherals::take()`
+/// only succeeds once, so this can't grab its own.
+fn ps2_configure(clk: InPin, data: InPin) {
     critical_section::with(|cs| {
         PS2_PINS.borrow(cs).replace(Some(Ps2Pins { clk, data }));
     });
-
-    unsafe {
-        cortex_m::peripheral::NVIC::unmask(hal::pac::Interrupt::IO_IRQ_BANK0);
-    }
 }
 
 fn decode_set2(scancode: u8) -> Option<char> {
@@ -44,60 +47,67 @@ fn decode_set2(scancode: u8) -> Option<char> {
     }
 }
 
-#[interrupt]
-fn IO_IRQ_BANK0() {
-    critical_section::with(|cs| {
-        let mut pins_slot = PS2_PINS.borrow(cs).borrow_mut();
-        let Some(pins) = pins_slot.as_mut() else { return };
+/// Check CLK/DATA once; shift in a bit on a falling edge, decode and
+/// queue a character once a full frame has arrived. Called every
+/// xk_read_key() poll — see kb_read_key() below.
+fn ps2_poll_once(cs: critical_section::CriticalSection<'_>) {
+    let mut pins_slot = PS2_PINS.borrow(cs).borrow_mut();
+    let Some(pins) = pins_slot.as_mut() else { return };
 
-        if !pins.clk.interrupt_status(hal::gpio::Interrupt::EdgeLow) {
-            return;
-        }
-        pins.clk.clear_interrupt(hal::gpio::Interrupt::EdgeLow);
+    let clk_high = pins.clk.is_high().unwrap_or(true);
+    let mut state = PS2_STATE.borrow(cs).borrow_mut();
+    let falling_edge = state.last_clk_high && !clk_high;
+    state.last_clk_high = clk_high;
 
-        let bit: u16 = if pins.data.is_high().unwrap_or(false) { 1 } else { 0 };
+    if !falling_edge {
+        return;
+    }
 
-        let mut state = PS2_STATE.borrow(cs).borrow_mut();
-        state.bits |= bit << state.count;
-        state.count += 1;
+    let bit: u16 = if pins.data.is_high().unwrap_or(false) { 1 } else { 0 };
+    state.bits |= bit << state.count;
+    state.count += 1;
 
-        if state.count < 11 {
-            return;
-        }
+    if state.count < 11 {
+        return;
+    }
 
-        let frame = state.bits;
-        let start_ok = frame & 0x1 == 0;
-        let stop_ok = (frame >> 10) & 0x1 == 1;
-        let byte = ((frame >> 1) & 0xFF) as u8;
-        state.bits = 0;
-        state.count = 0;
+    let frame = state.bits;
+    let start_ok = frame & 0x1 == 0;
+    let stop_ok = (frame >> 10) & 0x1 == 1;
+    let byte = ((frame >> 1) & 0xFF) as u8;
+    state.bits = 0;
+    state.count = 0;
 
-        if !start_ok || !stop_ok {
-            return;
-        }
+    if !start_ok || !stop_ok {
+        return;
+    }
 
-        if byte == 0xF0 {
-            state.pending_break = true;
-        } else if byte == 0xE0 {
-            state.pending_extended = true;
-        } else {
-            let was_break = state.pending_break;
-            let was_extended = state.pending_extended;
-            state.pending_break = false;
-            state.pending_extended = false;
+    if byte == 0xF0 {
+        state.pending_break = true;
+    } else if byte == 0xE0 {
+        state.pending_extended = true;
+    } else {
+        let was_break = state.pending_break;
+        let was_extended = state.pending_extended;
+        state.pending_break = false;
+        state.pending_extended = false;
 
-            if !was_break && !was_extended {
-                if let Some(c) = decode_set2(byte) {
-                    KEY_QUEUE.borrow(cs).borrow_mut().push_back(c);
-                }
+        if !was_break && !was_extended {
+            if let Some(c) = decode_set2(byte) {
+                KEY_QUEUE.borrow(cs).borrow_mut().push_back(c);
             }
         }
-    });
+    }
 }
 
-/// Pop the oldest queued keystroke, or `""` if none is waiting.
+/// Poll the real PS/2 line and the Wokwi sim injector, then pop the
+/// oldest queued keystroke — or `""` if none is waiting.
 pub fn kb_read_key() -> String {
-    critical_section::with(|cs| KEY_QUEUE.borrow(cs).borrow_mut().pop_front())
-        .map(|c| c.to_string())
-        .unwrap_or_default()
+    critical_section::with(|cs| {
+        ps2_poll_once(cs);
+        keyboard_sim_poll_once(cs);
+        KEY_QUEUE.borrow(cs).borrow_mut().pop_front()
+    })
+    .map(|c| c.to_string())
+    .unwrap_or_default()
 }

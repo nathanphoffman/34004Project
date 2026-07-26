@@ -59,16 +59,19 @@ struct Ps2Pins {
 /// In-progress 11-bit PS/2 frame (start + 8 data bits LSB-first + parity +
 /// stop), plus the break/extended prefix flags that arrive as their own
 /// separate frames and must persist until the frame after them.
+/// `last_clk_high` is software edge-detection state — CLK is polled, not
+/// interrupt-driven, so a falling edge is "was high last poll, low now".
 struct Ps2State {
     bits: u16,
     count: u8,
     pending_break: bool,
     pending_extended: bool,
+    last_clk_high: bool,
 }
 
 impl Ps2State {
     const fn new() -> Self {
-        Ps2State { bits: 0, count: 0, pending_break: false, pending_extended: false }
+        Ps2State { bits: 0, count: 0, pending_break: false, pending_extended: false, last_clk_high: true }
     }
 }
 
