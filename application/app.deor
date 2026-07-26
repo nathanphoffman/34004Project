@@ -1,14 +1,19 @@
 # User-space: sequencing what gets shown on the three panels, then
 # echoing keystrokes from lib/keyboard.deor onto panel 1. Real hardware
-# reads a PS/2 keyboard; the Wokwi build gets the same characters from
-# kernel/keyboard_sim.rs's timed injector instead — this file can't tell
-# the difference. The loop below polls xk_read_key() continuously —
-# there are no interrupts anywhere in this project (see kernel/keyboard.rs
-# for why), so nothing will ever wake a sleeping CPU here.
+# reads a PS/2 keyboard via an interrupt; the Wokwi build gets the same
+# characters from kernel/keyboard_sim.rs's polled injector instead —
+# this file can't tell the difference either way, and wait_for_interrupt()
+# below is real sleep on real hardware but a no-op on Wokwi (see
+# kernel/keyboard.rs for why Wokwi doesn't use interrupts) — same call,
+# different Rust underneath depending on which is being built.
 
 import "lib/lcd.deor"
 import "lib/keyboard.deor"
 import "lib/string.deor"
+
+fn void wait_for_interrupt()
+    rust
+        kernel_idle();
 
 fn bool batch_reached(int count)
     rust
@@ -30,6 +35,7 @@ fn void app_main()
     string typed = ""
     int since_flush = 0
     for if true
+        wait_for_interrupt()
         string key = xk_read_key()
         if key is not ""
             typed = s_join([typed, key])

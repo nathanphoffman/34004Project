@@ -1,16 +1,21 @@
-// Wokwi/rp2040 stand-in only. Wokwi can't simulate a real PS/2 keyboard,
-// so this polls a free-running timer and, once a few seconds have
-// elapsed since boot, dumps a canned string into the same KEY_QUEUE the
-// real PS/2 receiver (keyboard.rs) fills — app-level code draining
-// xk_read_key() can't tell the two apart, and still pops it one
-// character per call. Compiled to a no-op on real hardware (feature =
-// "rp2350"): kb_read_key() there only ever sees genuine keystrokes.
+// Wokwi/rp2040 stand-in only — compiled to a no-op on real hardware
+// (feature = "rp2350"): kb_read_key() there only ever sees genuine
+// keystrokes from keyboard.rs's interrupt-driven receiver. Wokwi can't
+// simulate a real PS/2 keyboard, so this polls a free-running timer
+// and, once a few seconds have elapsed since boot, dumps a canned
+// string into the same KEY_QUEUE the real receiver fills — app-level
+// code draining xk_read_key() can't tell the two apart, and still pops
+// it one character per call.
 //
-// Deliberately polled, not interrupt-driven — an earlier version used a
-// hardware timer alarm interrupt. Every fix that kept an interrupt
-// architecture (one-shot alarm, display batching, shrunk LCD delays)
-// failed to resolve a persistent Wokwi slowdown, so interrupts came out
-// entirely — see keyboard.rs for the same change on the real receiver.
+// Always polled here, never interrupt-driven, unlike keyboard.rs's
+// rp2350 path — not a stylistic choice, this file never runs on real
+// hardware at all, so there's no real-hardware side to give a real
+// interrupt to. An earlier version of *this specific file* did use a
+// hardware timer alarm interrupt for the Wokwi build, and it — along
+// with keyboard.rs's GPIO interrupt at the time — was the reason Wokwi's
+// simulation slowed down. See the top of keyboard.rs for the full
+// investigation and why real hardware keeps its interrupt while this
+// file doesn't.
 
 #[cfg(feature = "rp2040")]
 const SIM_KEYSTROKES: &str = "hello world\n";

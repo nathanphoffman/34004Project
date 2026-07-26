@@ -99,6 +99,19 @@ pub fn hw_print_str(display: i64, text: &str) {
     });
 }
 
+/// Sleep until the next interrupt fires. Real hardware only: the PS/2
+/// CLK interrupt (keyboard.rs) is the only interrupt source in this
+/// project, and only exists on this build. No-op on Wokwi — that build
+/// polls instead of using interrupts at all (see keyboard.rs for why),
+/// so there's nothing that would ever wake a sleeping CPU there; calling
+/// wfi() on that build would just hang forever.
+#[cfg(feature = "rp2350")]
+pub fn kernel_idle() {
+    cortex_m::asm::wfi();
+}
+#[cfg(feature = "rp2040")]
+pub fn kernel_idle() {}
+
 // Real hardware redraws every keystroke — each hw_print_str call is a
 // few ms of real time, imperceptible to a human typing. Wokwi's rp2040js
 // steps every cycle of that bit-banged delay loop individually with no
