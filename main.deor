@@ -1,60 +1,17 @@
 # Entry point for the Pico 2 kernel driving 3x 20x4 LCD panels.
 #
-# This target is bare-metal (no_std / no_main), so Deor's own `main` and
-# `print` cannot be used here: `print` expands to `println!`, which needs
-# std, and the real hardware entry point needs cortex-m-rt's `#[entry]`
-# attribute, which Deor has no syntax to attach. Both live in the crate
-# preamble below via `rust` blocks instead. Hardware bring-up itself is a
-# large, one-shot body of Rust with no natural Deor shape (GPIO/HAL setup,
-# bit-banging), so it lives in kernel.rs and is pulled in with `include!`
-# per docs/interop.md#external-rs-files. Deor's job here is the part that
-# does have a natural shape: sequencing the boot steps and the three
-# screen writes.
+# This is a thin wrapper: kernel/boot.deor brings in the crate preamble
+# and hardware bring-up (kernel/kernel.rs), application/app.deor holds the
+# sequencing of what actually gets shown. This file only wires the real
+# hardware entry point to app_main().
 
-rust
-    #![no_std]
-    #![no_main]
-
-    extern crate alloc;
-
-    use alloc::string::{String, ToString};
-    use cortex_m_rt::entry;
-    use panic_halt as _;
-
-    #[cfg(feature = "rp2350")]
-    use rp235x_hal as hal;
-    #[cfg(feature = "rp2040")]
-    use rp2040_hal as hal;
-
-    include!("../kernel.rs");
-
-fn void xk_init_hardware()
-    rust
-        hw_init();
-
-fn void xk_lcd_print(int display, string text)
-    rust
-        hw_print_str(display, text.as_str());
-
-fn void run_kernel()
-    xk_init_hardware()
-
-    int panel1 = 1
-    string greeting1 = "hello 1"
-    xk_lcd_print(panel1, greeting1)
-
-    int panel2 = 2
-    string greeting2 = "hello 3"
-    xk_lcd_print(panel2, greeting2)
-
-    int panel3 = 3
-    string greeting3 = "hello 3"
-    xk_lcd_print(panel3, greeting3)
+import "kernel/boot.deor"
+import "application/app.deor"
 
 rust
     #[entry]
     fn main() -> ! {
-        run_kernel();
+        app_main();
         loop {
             cortex_m::asm::wfi();
         }

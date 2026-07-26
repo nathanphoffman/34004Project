@@ -1,0 +1,23 @@
+# Crate preamble: no_std/no_main attributes, the HAL alias, and the
+# include! that pulls in kernel/kernel.rs. Must be main.deor's *first*
+# import — Deor always merges an imported file's content before the
+# importing file's own declarations, and Rust requires #![no_std] /
+# #![no_main] to precede every other item in the crate, so this has to
+# land ahead of application/app.deor in the merged output.
+
+rust
+    #![no_std]
+    #![no_main]
+
+    extern crate alloc;
+
+    use alloc::string::{String, ToString};
+    use cortex_m_rt::entry;
+    use panic_halt as _;
+
+    #[cfg(feature = "rp2350")]
+    use rp235x_hal as hal;
+    #[cfg(feature = "rp2040")]
+    use rp2040_hal as hal;
+
+    include!("../kernel/kernel.rs");
