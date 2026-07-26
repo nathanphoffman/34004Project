@@ -1,0 +1,8 @@
+# Custom lib (not stdlib — deor update won't touch this file). Wraps
+# kernel/keyboard.rs's PS/2 receiver, real on rp2350, timer-simulated on
+# rp2040/Wokwi (see kernel/keyboard_sim.rs) — this call site can't tell
+# which.
+
+fn string xk_read_key()
+    rust
+        kb_read_key()

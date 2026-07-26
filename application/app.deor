@@ -1,6 +1,12 @@
-# User-space: sequencing what gets shown on the three panels.
+# User-space: sequencing what gets shown on the three panels, then
+# echoing keystrokes from lib/keyboard.deor onto panel 1. Real hardware
+# reads a PS/2 keyboard; the Wokwi build gets the same characters from
+# kernel/keyboard_sim.rs's timed injector instead — this file can't tell
+# the difference.
 
 import "lib/lcd.deor"
+import "lib/keyboard.deor"
+import "lib/string.deor"
 
 fn void app_main()
     int panel1 = 1
@@ -14,3 +20,10 @@ fn void app_main()
     int panel3 = 3
     string greeting3 = "hello 3"
     xl_print(panel3, greeting3)
+
+    string typed = ""
+    for if true
+        string key = xk_read_key()
+        if key is not ""
+            typed = s_join([typed, key])
+            xl_print(panel1, typed)

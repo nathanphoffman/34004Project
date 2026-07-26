@@ -26,6 +26,7 @@ static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP
 static HEAP: embedded_alloc::Heap = embedded_alloc::Heap::empty();
 
 type OutPin = hal::gpio::Pin<hal::gpio::DynPinId, hal::gpio::FunctionSioOutput, hal::gpio::PullDown>;
+type InPin = hal::gpio::Pin<hal::gpio::DynPinId, hal::gpio::FunctionSio<hal::gpio::SioInput>, hal::gpio::PullUp>;
 
 struct Lcd {
     rs: OutPin,
@@ -48,3 +49,29 @@ struct Hardware {
 }
 
 static HARDWARE: Mutex<RefCell<Option<Hardware>>> = Mutex::new(RefCell::new(None));
+
+/// The two GPIOs a PS/2 keyboard's CLK/DATA lines are wired to.
+struct Ps2Pins {
+    clk: InPin,
+    data: InPin,
+}
+
+/// In-progress 11-bit PS/2 frame (start + 8 data bits LSB-first + parity +
+/// stop), plus the break/extended prefix flags that arrive as their own
+/// separate frames and must persist until the frame after them.
+struct Ps2State {
+    bits: u16,
+    count: u8,
+    pending_break: bool,
+    pending_extended: bool,
+}
+
+impl Ps2State {
+    const fn new() -> Self {
+        Ps2State { bits: 0, count: 0, pending_break: false, pending_extended: false }
+    }
+}
+
+static PS2_PINS: Mutex<RefCell<Option<Ps2Pins>>> = Mutex::new(RefCell::new(None));
+static PS2_STATE: Mutex<RefCell<Ps2State>> = Mutex::new(RefCell::new(Ps2State::new()));
+static KEY_QUEUE: Mutex<RefCell<VecDeque<char>>> = Mutex::new(RefCell::new(VecDeque::new()));

@@ -64,6 +64,21 @@ pub fn hw_init() {
     critical_section::with(|cs| {
         HARDWARE.borrow(cs).replace(Some(Hardware { bus, lcd1, lcd2, lcd3, delay }));
     });
+
+    // PS/2 keyboard CLK/DATA — separate from the onboard USB-C port, wired
+    // to two free GPIOs. Must happen here: pac::Peripherals::take() (above)
+    // only succeeds once, so ps2_configure can't grab its own pins later.
+    let ps2_clk = pins.gpio10.into_pull_up_input().into_dyn_pin();
+    let ps2_data = pins.gpio11.into_pull_up_input().into_dyn_pin();
+    ps2_configure(ps2_clk, ps2_data);
+
+    // Wokwi/rp2040 stand-in only — see keyboard_sim.rs. Real hardware
+    // (rp2350) never runs this; keys only ever come from ps2_configure.
+    #[cfg(feature = "rp2040")]
+    {
+        let sim_timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
+        keyboard_sim_start(sim_timer);
+    }
 }
 
 /// Print `text` to row 0 of the given display (1, 2, or 3).

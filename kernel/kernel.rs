@@ -1,7 +1,9 @@
-// RP2350 (Pico 2) hardware bring-up and a minimal bit-banged HD44780
-// 4-bit driver for three shared-bus 20x4 LCD panels, split across this
-// directory: state.rs (types + statics), lcd.rs (bit-bang driver),
-// hardware.rs (hw_init/hw_print_str — the two entry points Deor calls).
+// RP2350 (Pico 2) hardware bring-up, a minimal bit-banged HD44780 4-bit
+// driver for three shared-bus 20x4 LCD panels, and a PS/2 keyboard
+// receiver — split across this directory: state.rs (types + statics),
+// lcd.rs (bit-bang driver), hardware.rs (hw_init/hw_print_str — the
+// entry points Deor calls), keyboard.rs (real PS/2 receiver),
+// keyboard_sim.rs (Wokwi-only simulated keystrokes).
 //
 // Pulled in verbatim into build/main.rs via kernel/boot.deor's
 // include!("../kernel/kernel.rs") — see main.deor and
@@ -10,10 +12,14 @@
 
 use core::cell::RefCell;
 use core::mem::MaybeUninit;
+use alloc::collections::VecDeque;
 use critical_section::Mutex;
-use embedded_hal::digital::OutputPin;
+use embedded_hal::digital::{InputPin, OutputPin};
 use hal::Clock;
+use hal::pac::interrupt;
 
 include!("state.rs");
 include!("lcd.rs");
 include!("hardware.rs");
+include!("keyboard.rs");
+include!("keyboard_sim.rs");
