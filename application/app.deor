@@ -1,26 +1,16 @@
-# User-space: sequencing what gets shown on the three panels. Wraps the
-# kernel's hw_init/hw_print_str so nothing hardware-shaped crosses the
-# Deor/Rust boundary.
+# User-space: sequencing what gets shown on the three panels.
 
-fn void xk_init_hardware()
-    rust
-        hw_init();
-
-fn void xk_lcd_print(int display, string text)
-    rust
-        hw_print_str(display, text.as_str());
+import "lib/lcd.deor"
 
 fn void app_main()
-    xk_init_hardware()
-
     int panel1 = 1
     string greeting1 = "hello 1"
-    xk_lcd_print(panel1, greeting1)
+    xl_print(panel1, greeting1)
 
     int panel2 = 2
     string greeting2 = "hello 3"
-    xk_lcd_print(panel2, greeting2)
+    xl_print(panel2, greeting2)
 
     int panel3 = 3
     string greeting3 = "hello 3"
-    xk_lcd_print(panel3, greeting3)
+    xl_print(panel3, greeting3)

@@ -2,8 +2,8 @@
 #
 # This is a thin wrapper: kernel/boot.deor brings in the crate preamble
 # and hardware bring-up (kernel/kernel.rs), application/app.deor holds the
-# sequencing of what actually gets shown. This file only wires the real
-# hardware entry point to app_main().
+# sequencing of what actually gets shown. This file just wires the real
+# hardware entry point: bring up hardware, then hand off to app_main().
 
 import "kernel/boot.deor"
 import "application/app.deor"
@@ -11,6 +11,7 @@ import "application/app.deor"
 rust
     #[entry]
     fn main() -> ! {
+        hw_init();
         app_main();
         loop {
             cortex_m::asm::wfi();

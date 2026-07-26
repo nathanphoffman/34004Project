@@ -1,0 +1,7 @@
+# Custom lib (not stdlib — deor update won't touch this file). Wraps
+# kernel/hardware.rs's hw_print_str so nothing hardware-shaped crosses the
+# Deor/Rust boundary.
+
+fn void xl_print(int display, string text)
+    rust
+        hw_print_str(display, text.as_str());
