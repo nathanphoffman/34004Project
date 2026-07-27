@@ -1,8 +1,16 @@
 # Custom lib (not stdlib — deor update won't touch this file). Wraps
-# kernel/keyboard.rs's PS/2 receiver, real on rp2350, timer-simulated on
-# rp2040/Wokwi (see kernel/keyboard_sim.rs) — this call site can't tell
-# which.
+# kernel/keyboard.rs's PS/2 receiver — interrupt-driven on rp2350, polled
+# and timer-simulated on rp2040/Wokwi (see kernel/keyboard_sim.rs) — this
+# call site can't tell which.
 
 fn string xk_read_key()
     rust
         kb_read_key()
+
+# Backspace (HD44780/PS2 Set 2 scancode 0x66) decodes to ASCII 0x08,
+# which Deor string literals can't express directly — only \n, \t, \\,
+# \" are supported escapes (see docs/strings.md). Comparing it needs a
+# rust block, where \u{8} is valid.
+fn bool xk_is_backspace(string key)
+    rust
+        key == "\u{8}"

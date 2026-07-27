@@ -79,10 +79,26 @@ pub fn hw_init() {
         let sim_timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
         keyboard_sim_start(sim_timer);
     }
+
+    // Wokwi/rp2040 stand-in only. Blinking backlight1 three times here,
+    // right before hw_init() returns, is part of the one configuration
+    // confirmed working end-to-end in Wokwi (see the comment at the top
+    // of lcd.rs). Originally added purely as a diagnostic; removing it
+    // (even while keeping an equivalent-length plain delay in its place)
+    // made things worse, not better, so it stays as-is — not fully
+    // understood why, but known to work. `delay` got moved into
+    // HARDWARE above, hence the raw cycle count instead of `delay_ms`.
+    #[cfg(feature = "rp2040")]
+    for _ in 0..3 {
+        backlight1.set_low().unwrap();
+        cortex_m::asm::delay(20_000_000);
+        backlight1.set_high().unwrap();
+        cortex_m::asm::delay(20_000_000);
+    }
 }
 
-/// Print `text` to row 0 of the given display (1, 2, or 3).
-pub fn hw_print_str(display: i64, text: &str) {
+/// Print `text` to the given row (0-3) of the given display (1, 2, or 3).
+pub fn hw_print_str(display: i64, row: i64, text: &str) {
     critical_section::with(|cs| {
         let mut slot = HARDWARE.borrow(cs).borrow_mut();
         let hw = slot.as_mut().unwrap();
@@ -95,7 +111,7 @@ pub fn hw_print_str(display: i64, text: &str) {
             2 => lcd2,
             _ => lcd3,
         };
-        lcd_print_line(bus, lcd, text, delay);
+        lcd_print_line(bus, lcd, row as u8, text, delay);
     });
 }
 
@@ -111,20 +127,3 @@ pub fn kernel_idle() {
 }
 #[cfg(feature = "rp2040")]
 pub fn kernel_idle() {}
-
-// Real hardware redraws every keystroke — each hw_print_str call is a
-// few ms of real time, imperceptible to a human typing. Wokwi's rp2040js
-// steps every cycle of that bit-banged delay loop individually with no
-// fast-forward, so redrawing on every keystroke during the simulated
-// burst is what was crawling — batching cuts how often that runs there.
-#[cfg(feature = "rp2040")]
-const DISPLAY_BATCH: i64 = 4;
-#[cfg(not(feature = "rp2040"))]
-const DISPLAY_BATCH: i64 = 1;
-
-/// True once `count` new characters have accumulated since the last
-/// redraw. application/app.deor also flushes on '\n' regardless, so a
-/// trailing partial batch is never stranded on screen.
-pub fn display_batch_reached(count: i64) -> bool {
-    count % DISPLAY_BATCH == 0
-}

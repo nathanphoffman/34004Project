@@ -2,11 +2,14 @@
 // types in state.rs (DataBus/Lcd).
 //
 // The settle/reset delays below are HD44780 datasheet timing — real
-// hardware needs them. Wokwi's simulated LCD doesn't enforce that timing
-// at all, and rp2040js steps every cycle of a busy-wait delay loop
-// individually with no fast-forward, so on real hardware these delays
-// cost real (imperceptible) microseconds but on Wokwi they cost real
-// wall-clock simulator time. Scaled way down for the Wokwi build only.
+// hardware needs them. Shrunk way down for the Wokwi build only: this
+// combination (shrunk delays here + the pause at the end of hw_init(),
+// see hardware.rs) is the one configuration actually confirmed working
+// end-to-end in Wokwi, after a lot of back-and-forth. Several
+// "principled" reversions away from it (correct-but-slower delays here,
+// no pause in hardware.rs) each made things worse (garbled characters,
+// then no text at all) rather than better, so: known-working
+// configuration wins over theory until there's a real explanation.
 #[cfg(feature = "rp2040")]
 const NIBBLE_SETTLE_US: u32 = 1;
 #[cfg(not(feature = "rp2040"))]
@@ -82,9 +85,32 @@ fn lcd_init(bus: &mut DataBus, lcd: &mut Lcd, delay: &mut cortex_m::delay::Delay
     lcd_command(bus, lcd, 0x06, delay); // entry mode: increment, no shift
 }
 
-fn lcd_print_line(bus: &mut DataBus, lcd: &mut Lcd, text: &str, delay: &mut cortex_m::delay::Delay) {
-    lcd_command(bus, lcd, 0x80, delay); // row 0, column 0
+/// DDRAM start address for each row of a 20x4 HD44780 display. The
+/// controller only understands "1 line" or "2 lines" at the function-set
+/// level (lcd_init sends 0x28, 2-line, same as always) — 4 physical rows
+/// are really 2 controller lines of 40 characters each, split in half,
+/// so row addressing needs this offset table instead of a simple stride.
+fn row_address(row: u8) -> u8 {
+    match row {
+        0 => 0x00,
+        1 => 0x40,
+        2 => 0x14,
+        _ => 0x54,
+    }
+}
+
+/// Writes exactly 20 characters every time, padding with spaces past the
+/// end of `text` — a terminal input line shrinks as you backspace, and
+/// without padding, characters left over from a longer previous line
+/// would stay stuck on screen instead of getting overwritten.
+fn lcd_print_line(bus: &mut DataBus, lcd: &mut Lcd, row: u8, text: &str, delay: &mut cortex_m::delay::Delay) {
+    lcd_command(bus, lcd, 0x80 | row_address(row), delay);
+    let mut written = 0;
     for byte in text.bytes().take(20) {
         write_byte(bus, lcd, byte, true, delay);
+        written += 1;
+    }
+    for _ in written..20 {
+        write_byte(bus, lcd, b' ', true, delay);
     }
 }

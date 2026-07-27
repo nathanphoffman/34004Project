@@ -2,8 +2,8 @@
 // (feature = "rp2350"): kb_read_key() there only ever sees genuine
 // keystrokes from keyboard.rs's interrupt-driven receiver. Wokwi can't
 // simulate a real PS/2 keyboard, so this polls a free-running timer
-// and, once a few seconds have elapsed since boot, dumps a canned
-// string into the same KEY_QUEUE the real receiver fills — app-level
+// and, once a second has elapsed since boot, dumps a canned string
+// into the same KEY_QUEUE the real receiver fills — app-level
 // code draining xk_read_key() can't tell the two apart, and still pops
 // it one character per call.
 //
@@ -20,7 +20,7 @@
 #[cfg(feature = "rp2040")]
 const SIM_KEYSTROKES: &str = "hello world\n";
 #[cfg(feature = "rp2040")]
-const SIM_BOOT_DELAY_US: u32 = 5_000_000;
+const SIM_BOOT_DELAY_US: u32 = 1_000_000;
 
 #[cfg(feature = "rp2040")]
 static SIM_TIMER: Mutex<RefCell<Option<hal::Timer>>> = Mutex::new(RefCell::new(None));

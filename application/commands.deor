@@ -1,0 +1,16 @@
+# Command dispatch for the panel-1 terminal in application/app.deor.
+#
+# handle_command() is called once, exactly when Enter is pressed on the
+# terminal, with whatever line was typed (Enter itself is not included).
+# Its return value is printed to the terminal's output row. This is the
+# one place a finished command lands — add "if command is ..." branches
+# below to decide what happens for each command you want to support.
+
+import "lib/string.deor"
+
+fn string handle_command(string command)
+    if command is "hello"
+        return "hi there!"
+    else if command is ""
+        return ""
+    return s_join(["unknown: ", command])

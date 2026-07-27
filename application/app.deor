@@ -1,45 +1,69 @@
-# User-space: sequencing what gets shown on the three panels, then
-# echoing keystrokes from lib/keyboard.deor onto panel 1. Real hardware
-# reads a PS/2 keyboard via an interrupt; the Wokwi build gets the same
-# characters from kernel/keyboard_sim.rs's polled injector instead —
-# this file can't tell the difference either way, and wait_for_interrupt()
-# below is real sleep on real hardware but a no-op on Wokwi (see
-# kernel/keyboard.rs for why Wokwi doesn't use interrupts) — same call,
-# different Rust underneath depending on which is being built.
+# User-space: panel 1 boots straight into a terminal — row 0 is the
+# live input line (prompt + whatever's being typed), row 1 is the
+# output from the last command. Panels 2/3 stay static boot greetings.
+#
+# Real hardware reads a PS/2 keyboard via an interrupt; the Wokwi build
+# gets the same characters from kernel/keyboard_sim.rs's polled injector
+# instead — this file can't tell the difference either way, and
+# wait_for_interrupt() below is real sleep on real hardware but a no-op
+# on Wokwi (see kernel/keyboard.rs for why Wokwi doesn't use interrupts)
+# — same call, different Rust underneath depending on which is built.
+#
+# active_panel tracks which display keyboard input is routed to. It's
+# only ever panel1 today, but it's a named variable (not a repeated
+# literal) specifically so a future "switch screens" feature has
+# somewhere to redirect it to instead of hardcoding panel1 everywhere
+# below.
+#
+# handle_command() in application/commands.deor is where a finished
+# line (whatever was typed before Enter) gets intercepted — that's the
+# file to edit to add real command logic.
 
 import "lib/lcd.deor"
 import "lib/keyboard.deor"
 import "lib/string.deor"
+import "application/commands.deor"
 
 fn void wait_for_interrupt()
     rust
         kernel_idle();
 
-fn bool batch_reached(int count)
-    rust
-        display_batch_reached(count)
-
 fn void app_main()
     int panel1 = 1
-    string greeting1 = "rebuild check 1"
-    xl_print(panel1, greeting1)
-
     int panel2 = 2
-    string greeting2 = "rebuild check 2"
-    xl_print(panel2, greeting2)
-
     int panel3 = 3
-    string greeting3 = "rebuild check 3"
-    xl_print(panel3, greeting3)
+    int row0 = 0
+    int row1 = 1
 
+    string greeting2 = "rebuild check 2"
+    xl_print(panel2, row0, greeting2)
+
+    string greeting3 = "rebuild check 3"
+    xl_print(panel3, row0, greeting3)
+
+    int active_panel = panel1
+    string prompt = "> "
     string typed = ""
-    int since_flush = 0
+    xl_print(active_panel, row0, prompt)
+
     for if true
         wait_for_interrupt()
         string key = xk_read_key()
         if key is not ""
-            typed = s_join([typed, key])
-            since_flush = since_flush + 1
-            if batch_reached(since_flush) or key is "\n"
-                xl_print(panel1, typed)
-                since_flush = 0
+            if key is "\n"
+                string output = handle_command(typed)
+                xl_print(active_panel, row1, output)
+                typed = ""
+                xl_print(active_panel, row0, prompt)
+            else if xk_is_backspace(key)
+                int typed_len = len(typed)
+                if typed_len > 0
+                    int start = 0
+                    int new_len = typed_len - 1
+                    typed = s_substring(typed, start, new_len)
+                string line = s_join([prompt, typed])
+                xl_print(active_panel, row0, line)
+            else
+                typed = s_join([typed, key])
+                string line = s_join([prompt, typed])
+                xl_print(active_panel, row0, line)

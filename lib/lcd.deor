@@ -2,6 +2,6 @@
 # kernel/hardware.rs's hw_print_str so nothing hardware-shaped crosses the
 # Deor/Rust boundary.
 
-fn void xl_print(int display, string text)
+fn void xl_print(int display, int row, string text)
     rust
-        hw_print_str(display, text.as_str());
+        hw_print_str(display, row, text.as_str());
